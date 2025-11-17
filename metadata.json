@@ -1,0 +1,5 @@
+{
+  "name": "Hacker News Graph Visualizer",
+  "description": "A web application that visualizes Hacker News top stories, their authors, and linked domains as an interactive force-directed graph.",
+  "requestFramePermissions": []
+}
