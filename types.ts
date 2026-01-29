@@ -1,13 +1,15 @@
-export interface HNStory {
+export interface HNItem {
   id: number;
-  type: 'story';
-  by: string;
+  type: 'story' | 'comment' | 'job' | 'poll' | 'pollopt';
+  by?: string;
   time: number;
   kids?: number[];
-  url: string;
-  score: number;
-  title: string;
-  descendants: number;
+  url?: string;
+  score?: number;
+  title?: string;
+  text?: string;
+  parent?: number;
+  descendants?: number;
   deleted?: boolean;
   dead?: boolean;
 }
@@ -15,9 +17,11 @@ export interface HNStory {
 
 export interface GraphNode {
   id: string;
-  group: number; // 1 for story, 2 for author, 3 for domain
+  group: number; // 1 for story, 2 for comment (depth based coloring)
+  depth: number; // 0 for story, 1+ for comments
   title: string;
-  hnUrl?: string; // URL to the item or user on news.ycombinator.com
+  author?: string;
+  hnUrl?: string; // URL to the item on news.ycombinator.com
   articleUrl?: string; // External URL for stories
   
   // d3 properties

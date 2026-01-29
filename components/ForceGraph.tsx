@@ -28,23 +28,29 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data }) => {
     
     const container = svg.append("g");
 
-    const color = d3.scaleOrdinal()
-      .domain(['1', '2', '3']) // 1: Story, 2: Author, 3: Domain
-      .range(['#f97316', '#3b82f6', '#22c55e']); // Orange, Blue, Green
+    // Color scale based on depth: stories are orange, comments fade from blue to purple
+    const getNodeColor = (d: GraphNode): string => {
+      if (d.group === 1) return '#f97316'; // Orange for stories
+      // Comments: gradient from cyan to purple based on depth
+      const depthColors = ['#06b6d4', '#8b5cf6', '#ec4899']; // cyan, violet, pink
+      return depthColors[Math.min(d.depth - 1, depthColors.length - 1)] || '#8b5cf6';
+    };
+
+    const getNodeRadius = (d: GraphNode): number => {
+      if (d.group === 1) return 14; // Stories are largest
+      // Comments get smaller with depth
+      return Math.max(6, 10 - d.depth * 2);
+    };
 
     const simulation = d3.forceSimulation<GraphNode>(nodes)
-      .force('link', d3.forceLink<GraphNode, GraphLink>(links).id(d => d.id).distance(60).strength(0.3))
-      .force('charge', d3.forceManyBody().strength(-200))
+      .force('link', d3.forceLink<GraphNode, GraphLink>(links).id(d => d.id).distance(50).strength(0.4))
+      .force('charge', d3.forceManyBody().strength(-150))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide<GraphNode>().radius(d => {
-        if (d.group === 1) return 12 + 2; // Story
-        if (d.group === 3) return 8 + 2;  // Domain
-        return 5 + 2; // Author
-      }));
+      .force('collision', d3.forceCollide<GraphNode>().radius(d => getNodeRadius(d) + 3));
 
     const link = container.append('g')
       .attr('stroke', '#4b5563')
-      .attr('stroke-opacity', 0.6)
+      .attr('stroke-opacity', 0.4)
       .selectAll('line')
       .data(links)
       .join('line')
@@ -54,12 +60,8 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data }) => {
       .selectAll('circle')
       .data(nodes)
       .join('circle')
-      .attr('r', d => {
-        if (d.group === 1) return 12; // Story
-        if (d.group === 3) return 8;  // Domain
-        return 5;  // Author
-      })
-      .attr('fill', d => color(d.group.toString()) as string)
+      .attr('r', d => getNodeRadius(d))
+      .attr('fill', d => getNodeColor(d))
       .attr('stroke', '#1f2937')
       .attr('stroke-width', 2);
     
@@ -89,15 +91,17 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data }) => {
     // Tooltip
     const tooltip = d3.select(tooltipRef.current);
     node.on('mouseover', (event, d) => {
+        const typeLabel = d.group === 1 ? 'Story' : 'Comment';
+        const authorInfo = d.author ? `<div class="text-xs text-gray-400">by ${d.author}</div>` : '';
         tooltip.style('visibility', 'visible')
-               .html(`<div class="text-sm">${d.title}</div>`)
+               .html(`<div class="text-xs text-orange-400 font-semibold">${typeLabel}</div><div class="text-sm mt-1">${d.title}</div>${authorInfo}`)
                .style('left', `${event.pageX + 10}px`)
                .style('top', `${event.pageY + 10}px`);
         
         d3.select(event.currentTarget)
           .transition()
           .duration(150)
-          .attr('r', (d.group === 1 ? 18 : (d.group === 3 ? 12 : 9)))
+          .attr('r', getNodeRadius(d) + 4)
           .attr('stroke', '#fefce8');
     })
     .on('mouseout', (event, d) => {
@@ -105,12 +109,12 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data }) => {
         d3.select(event.currentTarget)
           .transition()
           .duration(150)
-          .attr('r', (d.group === 1 ? 12 : (d.group === 3 ? 8 : 5)))
+          .attr('r', getNodeRadius(d))
           .attr('stroke', '#1f2937');
     })
     .on('click', (event, d) => {
-        // For stories and domains, open articleUrl. For authors, open hnUrl.
-        const urlToOpen = d.group === 2 ? d.hnUrl : d.articleUrl;
+        // For stories with articleUrl, open that. Otherwise open HN page.
+        const urlToOpen = (d.group === 1 && d.articleUrl) ? d.articleUrl : d.hnUrl;
         if (urlToOpen) {
             window.open(urlToOpen, '_blank');
         }
@@ -147,6 +151,24 @@ const ForceGraph: React.FC<ForceGraphProps> = ({ data }) => {
             className="absolute p-2 text-white bg-gray-800 border border-gray-600 rounded-md shadow-lg pointer-events-none"
             style={{ visibility: 'hidden', maxWidth: '300px' }}
         ></div>
+        {/* Legend */}
+        <div className="absolute bottom-4 left-4 bg-gray-800/90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 shadow-lg">
+          <div className="text-xs text-gray-400 font-semibold mb-2 uppercase tracking-wide">Legend</div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded-full bg-orange-500 border-2 border-gray-900 inline-block"></span>
+              <span className="text-sm text-gray-200">Stories</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full bg-cyan-500 border-2 border-gray-900 inline-block"></span>
+              <span className="text-sm text-gray-200">Comments (Depth 1)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-violet-500 border-2 border-gray-900 inline-block"></span>
+              <span className="text-sm text-gray-200">Replies (Depth 2+)</span>
+            </div>
+          </div>
+        </div>
     </div>
   );
 };
